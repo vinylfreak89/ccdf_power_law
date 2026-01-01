@@ -85,11 +85,13 @@ def generate_signal(df, window=21, threshold_sigma=1.0):
         threshold_sigma: Threshold in standard deviations (default 1.0)
         
     Returns:
-        DataFrame with Signal column:
-        - 2.0 = GREEN (2x long)
-        - 1.0 = WHITE (1x long)
-        - -1.0 = RED (short)
+        DataFrame with State column added:
+        - 'GREEN': 2x long (R² improving - power law strengthening)
+        - 'ORANGE': 1x long (neutral)
+        - 'RED': short (R² degrading - power law weakening)
     """
+    df = df.copy()
+    
     # Calculate global alpha from full dataset
     global_alpha, _ = calculate_alpha_and_fit(df['Return'].values)
     
@@ -100,61 +102,60 @@ def generate_signal(df, window=21, threshold_sigma=1.0):
         global_r2.append(r if r is not None else np.nan)
     
     # Add to dataframe
-    df = df.copy()
     df['GlobalR2'] = [np.nan] * window + global_r2
     
-    # DROP NaN and RESET index (critical - indices must match signal finding!)
-    df = df[df['GlobalR2'].notna()].copy().reset_index(drop=True)
+    # Work on subset where GlobalR2 is not NaN (like original logic)
+    df_subset = df[df['GlobalR2'].notna()].copy().reset_index(drop=True)
     
     # Calculate derivative
-    df['R2_derivative'] = df['GlobalR2'].diff()
+    df_subset['R2_derivative'] = df_subset['GlobalR2'].diff()
     
     # Calculate threshold
-    derivative_clean = df['R2_derivative'].dropna()
+    derivative_clean = df_subset['R2_derivative'].dropna()
     std = derivative_clean.std()
     threshold_pos = threshold_sigma * std
     threshold_neg = -threshold_sigma * std
     
-    # Find breach signals
+    # Find breach signals on the subset
     signals = []
-    for i in range(len(df)):
-        deriv = df.iloc[i]['R2_derivative']
+    for i in range(len(df_subset)):
+        deriv = df_subset.iloc[i]['R2_derivative']
         if pd.notna(deriv):
             if deriv > threshold_pos:
                 signals.append((i, 'green'))
             elif deriv < threshold_neg:
                 signals.append((i, 'red'))
     
-    # Initialize all as white (neutral)
-    regime = ['white'] * len(df)
-    
     # Color regions between consecutive matching signals
-    # Store as (start, end, color) where end is INCLUSIVE
     colored_regions = []
     for i in range(len(signals) - 1):
         start_idx, start_color = signals[i]
         end_idx, end_color = signals[i + 1]
         
-        # Only color if consecutive signals match
         if start_color == end_color:
             colored_regions.append((start_idx, end_idx, start_color))
     
-    # Now color the regions (end is INCLUSIVE like manual plot)
-    regime = ['white'] * len(df)
+    # Create state array on the subset
+    state_subset = ['orange'] * len(df_subset)
     for start_idx, end_idx, color in colored_regions:
         for j in range(start_idx, end_idx + 1):
-            regime[j] = color
+            state_subset[j] = color
     
-    df['Regime'] = regime
+    df_subset['State'] = [s.upper() for s in state_subset]
     
-    # Convert to signal
-    # WHITE = 1.0 (long)
-    # GREEN = 2.0 (2x long)
-    # RED = -1.0 (short)
-    df['Signal'] = df['Regime'].map({
-        'white': 1.0,
-        'green': 2.0,
-        'red': -1.0
-    })
+    # Map back to original dataframe using Date
+    df['State'] = 'ORANGE'  # Default for rows with NaN GlobalR2
+    date_to_state = dict(zip(df_subset['Date'], df_subset['State']))
+    df['State'] = df['Date'].map(date_to_state).fillna('ORANGE')
     
-    return df[['Date', 'Signal']].copy()
+    # Print summary
+    red_days = (df['State'] == 'RED').sum()
+    orange_days = (df['State'] == 'ORANGE').sum()
+    green_days = (df['State'] == 'GREEN').sum()
+    
+    print(f"✓ R² derivative signal calculated:")
+    print(f"  RED: {red_days:,} days ({red_days/len(df)*100:.1f}%)")
+    print(f"  ORANGE: {orange_days:,} days ({orange_days/len(df)*100:.1f}%)")
+    print(f"  GREEN: {green_days:,} days ({green_days/len(df)*100:.1f}%)")
+    
+    return df

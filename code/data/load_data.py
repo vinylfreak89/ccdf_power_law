@@ -21,20 +21,21 @@ def load_asset(filename, min_date=None):
     Raises:
         FileNotFoundError: If the CSV file doesn't exist
     """
-    filepath = f'/mnt/user-data/uploads/{filename}'
+    # Try multiple possible locations
+    possible_paths = [
+        f'data/{filename}',  # Relative to project root
+        f'/home/claude/ccdf_power_law/organized_project/data/{filename}',  # Absolute
+        f'/mnt/user-data/uploads/{filename}',  # Original location
+    ]
     
-    # Check if file exists
-    if not os.path.exists(filepath):
-        available_files = [f for f in os.listdir('/mnt/user-data/uploads/') if f.endswith('.csv')]
-        error_msg = f"""
-ERROR: File not found: {filename}
-Path tried: {filepath}
-
-Available CSV files in /mnt/user-data/uploads/:
-{chr(10).join(f'  - {f}' for f in available_files)}
-
-ACTION REQUIRED: User needs to upload {filename} to /mnt/user-data/uploads/
-"""
+    filepath = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            filepath = path
+            break
+    
+    if filepath is None:
+        error_msg = f"ERROR: File not found: {filename} in any of the expected locations"
         print(error_msg)
         raise FileNotFoundError(error_msg)
     

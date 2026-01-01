@@ -1,8 +1,8 @@
 # Power Law Trading Signal Investigation - Work Log
 
 **Date Range**: December 2025 - January 2026  
-**Status**: Back to basics - previous signals invalidated  
-**Current Phase**: Phase 1 Complete - Infrastructure built, dead ends eliminated
+**Status**: Phase 1 & 2 Complete - Infrastructure built, multiple signals tested and failed  
+**Current Phase**: Ready for Phase 3
 
 ---
 
@@ -14,36 +14,18 @@
 1. The moderate volatility signal works with T+0 (p<0.001) but has look-ahead bias
 2. The moderate volatility T+1 signal had implementation bugs and was never fully tested
 3. The power law CCDF separation is a mathematical artifact of the fitting algorithm, not a real market phenomenon
-4. Clean modular infrastructure for testing new hypotheses
-5. Rigorous statistical validation framework (Markov chain randomization, percentile testing)
-6. Methodology for distinguishing real signals from artifacts (synthetic/shuffled data testing)
+4. **Phase 2**: Power law fit quality (R²) and alpha derivative show real regime behavior but don't translate to trading edge
+5. Clean modular infrastructure for testing new hypotheses
+6. Rigorous statistical validation framework (Markov chain randomization, percentile testing)
+7. Methodology for distinguishing real signals from artifacts (synthetic/shuffled data testing)
 
-**Key Insight**: We eliminated the power law artifact and found bugs in T+1 implementation. The moderate vol signal might have a weak edge but needs proper testing. More importantly, we built the tools to find out.
+**Key Insight**: Two phases of rigorous testing eliminated multiple promising-looking signals. The moderate vol signal might have weak edge but needs proper testing. Power law fit quality varies meaningfully (R² correlates 0.74 with VIX) and alpha oscillator quiets during bear markets, but neither produces profitable signals in raw form. More importantly, we built the tools and methodology to find out what's real.
+
+**Status**: Phase 1 & 2 Complete. Ready for Phase 3.
 
 ---
 
 ## What Worked (Infrastructure & Tools)
-
-### Modular Code Structure ✓
-```
-/mnt/user-data/outputs/code/
-  ├── data/
-  │   └── load_data.py - Asset loader with automatic date filtering
-  ├── signals/
-  │   ├── moderate_vol.py - Moderate volatility % signal (2-year rolling baseline)
-  │   └── power_law_deviation.py - Power law deviation signal (60-day rolling)
-  ├── analysis/
-  │   ├── calculate_ccdf.py - CCDF calculation by state
-  │   ├── calculate_derivative.py - CCDF derivative (uses np.diff)
-  │   ├── state_utils.py - State combination utilities
-  │   ├── backtest.py - Backtesting with T+N lag support
-  │   └── test_vs_random.py - Statistical validation vs random signals
-  └── plotting/
-      ├── plot_ccdf_by_state.py - CCDF visualization
-      └── plot_derivative.py - Derivative visualization (dual panel)
-```
-
-**Why This Matters**: Each module does ONE thing. Can test components independently. No more monolithic scripts that break mysteriously.
 
 ### Statistical Validation Framework ✓
 - **Random signal testing**: Generate 50-200 random signals with matching state distribution
@@ -377,274 +359,162 @@ Now we can explore what's actually real, with clean tools and clear thinking.
 # PHASE 2: Power Law Fit Quality as Regime Indicator
 
 **Date**: January 1, 2026  
-**Status**: Exploring R² derivative oscillator as volatility regime predictor  
-**Key Discovery**: Global power law fit quality degrades before/during crises
+**Status**: Phase 2 COMPLETE - R² and Alpha derivative signals tested and FAILED  
+**Key Discovery**: Alpha oscillator behavior is real but not tradeable in raw form
+**Date Completed**: January 2, 2026
 
 ---
 
-## The Heteroskedasticity Insight
+## Phase 2 Summary: R² and Alpha Derivative Exploration
 
-While analyzing fit quality by volatility regime, discovered that power law R² varies significantly:
-- **Low vol regime**: R² ≈ 0.95 (excellent fit)
-- **High vol regime**: R² ≈ 0.85 (degraded fit)
+**Goal**: Determine if power law fit quality metrics (R² or alpha) contain tradeable regime information
 
-**Implication**: The power law is conditionally valid - it describes the distribution well in calm markets but breaks down during stress. This heteroskedasticity in fit quality itself could be a regime indicator.
+**Hypothesis**: Changes in how well returns fit a power law (R² degradation, alpha shifts) predict market stress
 
-## Global vs Local Alpha Fits
+**Result**: ✗ FAILED - Signals show interesting patterns but no trading edge
 
-Compared fitting approaches:
-1. **Local fit**: Calculate alpha from each rolling window, measure R² of that fit
-2. **Global fit**: Use the full dataset's alpha (α=1.815), measure how well it fits each window
+---
 
-**Finding**: Global fit R² varies MORE during crises (mean R²=0.776 vs local R²=0.889 for 21d windows). When current market behavior deviates from the long-term distribution, global R² drops - signaling regime change.
+## What We Tested
 
-**Correlation with VIX**: Inverted global R² correlates 0.736 with VIX over full history (1920-2025).
+### 1. R² Derivative Signal ✗ FAILED
+**Approach**: dR²/dt oscillator with ±1σ thresholds
+- Used global alpha (α=1.815) with 21-day rolling R²
+- Consecutive matching breaches → colored regimes
+- Result: Just noise, no predictive power
+- Backtest: Not tested (abandoned after seeing noise)
 
-## R² Derivative Oscillator
+### 2. Alpha Changes During Crises
+**Discovery**: Alpha does change during bear markets, but:
+- Crisis comparison plots showed weak correlations (0.6-0.9)
+- Lead times inconsistent (0-18 days)
+- R² spikes DURING crashes, not before
+- 252-day R² vs VIX: Lags crashes, confirms not predicts
 
-Created pure derivative signal: dR²/dt
-
-**Statistics** (21-day window):
-- Mean: ~0
-- Std: 0.0637
-- ±2σ: ±0.127
-- ±3σ: ±0.191
-- Fat tails: 1.75% beyond ±3σ (vs 0.3% expected for normal)
-
-**Observation**: Extreme derivative events (|dR²/dt| > 2σ) cluster during regime transitions.
-
-## Regime Coloring Logic
-
-Developed validation system:
-1. Breach +1σ → tentative GREEN signal (fit improving)
-2. Breach -1σ → tentative RED signal (fit degrading)  
-3. Consecutive matching signals validate the regime
-4. Signal flip (green→red or red→green) invalidates → WHITE (neutral)
-
-**Result** (1σ threshold):
-- Green: ~26% of days (fit improving regime)
-- Red: ~23% of days (fit degrading regime)
-- White: ~51% of days (neutral/invalidated)
-
-## Alpha Window Optimization
-
-Tested 7 windows (15d to 504d) for alpha calculation vs 21d VIX during COVID 2020:
-
-| Window | Correlation | Lag | Assessment |
-|--------|-------------|-----|------------|
-| 15d | 0.615 | -1d | Too noisy |
-| 21d | 0.722 | -1d | Good signal |
-| **42d** | **0.804** | **-1d** | **OPTIMAL** |
-| 63d | 0.714 | -1d | Still clean |
-| 126d | 0.530 | -5d | Getting sluggish |
-| 252d | 0.428 | -7d | Misses action |
-| 504d | 0.348 | -10d | Unresponsive |
-
-**Optimal**: 42-day window balances responsiveness with stability.
-
-## Crisis Period Analysis
-
-Examined 5 major crises with alpha window comparison:
-1. **1929 Crash** (Apr 1929 - Feb 1930)
-2. **1987 Black Monday** (Apr 1987 - Feb 1988)
-3. **2000 Dot-com** (Jun 1999 - Mar 2001)
-4. **2008 Financial Crisis** (Jan 2008 - Feb 2009)
-5. **2020 COVID** (Sep 2019 - Aug 2020)
-
-**Lead/Lag Findings**:
-- **2020 COVID**: R² derivative LED VIX clearly
-- **1987 & 2008**: Alpha showed some leading behavior
-- **2000 Dot-com**: Synchronized, no clear lead
-- **1929**: Messy relationship
-
-**Conclusion**: Predictive power varies by crisis type - may work for financial/credit crises (1987, 2008) but not exogenous shocks (COVID, dot-com).
-
-## Backtest Framework Created
-
-Built modular backtesting system:
-
-**Files**:
-- `signals/r2_derivative_regime.py` - R² regime signal generator
-- `backtest/backtest_engine.py` - Position sizing & performance metrics
-
-**Status**: Framework built but results not yet validated. Need to verify:
-1. Signal file logic matches plotting logic
-2. No look-ahead bias in implementation
-3. Statistical significance vs random signals
-4. Optimal threshold levels (1σ, 2σ, 3σ)
-
-## Current State & Next Steps
-
-**What Works**:
-- Clean oscillator (dR²/dt) with interpretable statistics
-- Regime coloring logic that validates signals
-- Modular backtest framework
-- Visual confirmation of regime clustering
-
-**What's Uncertain**:
-- Is the signal file generating the same regimes as the plot?
-- Does green regime actually predict good times to lever up?
-- Statistical significance unknown (need vs random testing)
-- Optimal threshold unclear (1σ? 2σ? 3σ?)
-
-**Immediate Tasks**:
-1. ✓ Document Phase 2 in worklog
-2. ⧗ Verify signal file matches plot logic (numbers don't align yet)
-3. ⧗ Run statistical validation vs random signals
-4. ⧗ Test across multiple threshold levels
-5. ⧗ Create Phase 2 archive zip
-
-**Files Generated**:
-- `fit_quality_analysis_spx.png` - Original heteroskedasticity discovery
-- `fit_quality_comparison.png` - Local vs global alpha fits
-- `vix_vs_inverted_fit_quality.png` - R² correlation with VIX
-- `r2_derivative_oscillator.png` - Oscillator with σ bands
-- `spx_with_r2_extreme_events.png` - Regime coloring visualization
-- `covid_2020_alpha_windows.png` - Window optimization for COVID
-- `crash_1929_alpha_windows.png` through `crisis_2008_alpha_windows.png` - Crisis analysis
-- `crisis_periods_phase_shift.png` - Multi-crisis comparison
-
-## CCDF Deviation Derivative (IN PROGRESS)
-
-**Date**: January 1, 2026 (afternoon session)  
-**Status**: Implementation interrupted due to context window issues
-
-### Return to Original "Bendy Bendy" Pattern
-
-After R² derivative work, returned to examine the Phase 1 CCDF curve shape more carefully with fresh perspective.
-
-**Key Question**: Can we extract a signal directly from how the CCDF curve deviates from the fitted power law, rather than from abstract fit quality metrics (R²)?
-
-### Universal Pattern Confirmation
-
-Re-examined CCDF plots and **confirmed systematic deviation pattern exists across ALL 15 assets**:
-
-**Assets tested**:
+**Alpha Across Asset Classes**:
+Tested 15 assets - rolling alpha is a universal property of liquid markets:
 - Indices: SPX (α=1.811), NDX (α=1.562), IWM, EWJ
-- Tech stocks: AMZN, NVDA (α=1.2-1.5), TSLA, IBM  
-- Crypto: BTC (α=1.054), ETH (α=1.032)
+- Tech stocks: AMZN, NVDA (α=1.2-1.5), TSLA, IBM
+- Crypto: BTC (α=1.054), ETH (α=1.032) - fattest tails
 - Commodities: Gold (α=1.630), Silver, Oil
-- Bonds: TLT (α=2.161)
-- Other: BYND
-- **VIX**: α=0.618 (fattest tails of anything tested!)
+- Bonds: TLT (α=2.161) - thinnest tails
+- VIX: α=0.618 (fattest tails of all!)
 
 **Coefficient of Variation (CV) of rolling alpha**:
 - 12 of 15 assets have CV > 0.15 (high variability)
 - Most variable: AMZN CV=0.291, BTC CV=0.291, NVDA CV=0.271
 - Average: CV = 0.203 (α varies ~20% across all asset classes)
-- **Key finding**: VIX CV=0.190, nearly identical to SPX CV=0.189
+- VIX CV=0.190, nearly identical to SPX CV=0.189
 
-**Interpretation**: Rolling alpha is a **universal property of liquid markets**, not unique to equities.
+### 3. Alpha Derivative Oscillator - THE BIG EFFORT ✗ FAILED
 
-### The "Bendy Bendy" Pattern Revisited
+**Initial Observation** (the "aha" moment):
+Looking at dα/dt with bear markets highlighted, noticed the derivative becomes **QUIET** during bear markets - oscillations reduce/compress. This seemed like a regime signal.
 
-**What it is**: Empirical CCDF systematically wiggles ABOVE and BELOW the fitted power law line in log-log space
-- Pattern appears in ALL 15 assets
-- NOT a simple fitting artifact (too consistent and universal)
-- Real structural deviation from pure power law behavior
+**The Problem**: Visual pattern vs mathematical measurement
+- Could SEE quietness in raw dα/dt plot
+- Could NOT capture it mathematically
 
-**What it means**:
-- Curve above fitted line = more days with those return sizes than power law predicts
-- Curve below fitted line = fewer days with those return sizes than power law predicts  
-- The curve "bends" through different regions of the return distribution
+**Attempts to Quantify "Quietness"**:
+1. Rolling std of dα/dt → Still noisy
+2. Rolling volatility of dα/dt → Same thing, different name
+3. Sum of |Δ(dα/dt)| → Correlated with volatility
+4. Average |dα/dt| → Still just volatility
+5. Range-based chaos oscillator → All measuring the same thing
+6. Synthetic VIX on alpha → Redundant
 
-**Critical distinction from Phase 1**:
-- Phase 1: Proved the RED/GREEN *separation* is artifact of local fitting
-- Phase 2: The underlying *curve shape deviation* is real and universal
-- Question: Can we measure this deviation differently to avoid the artifact?
+**Breakthrough**: Absolute value with normalization
+- Calculate |dα/dt|
+- Smooth with 84-day MA
+- Z-score normalize against 2-year (504-day) baseline
+- Threshold: z > 1 = GREEN (chaotic), z < -1 = RED (quiet)
 
-### Hypothesis: CCDF Deviation Derivative
+**Final Signal**: `alpha_derivative_zscore.py`
+- 42-day rolling alpha
+- 84-day MA of |dα/dt|
+- 504-day z-score normalization
+- States: RED (17.4%), ORANGE (63.3%), GREEN (19.3%)
 
-**Core idea**: Instead of measuring absolute deviation from power law (Phase 1 approach), measure the **rate of change** of that deviation.
+**Backtest Results** (T+1, 1920-2025):
 
-**Rationale**: 
-- Similar to R² derivative approach - change matters more than level
-- When CCDF rapidly moving AWAY from fitted line → regime change
-- When CCDF rapidly moving TOWARD fitted line → stabilization
-- Derivative filters out the slow drift, captures inflection points
+| Configuration | Strategy | B&H | Outperformance | Sharpe | Max DD |
+|--------------|----------|-----|----------------|--------|--------|
+| Green=2x, Orange=1x, Red=-1x | 1,111% | 72,693% | **-71,582%** | 0.214 | -82.6% |
+| Green=2x, Orange=1x, Red=0x | 9,198% | 72,693% | **-63,495%** | 0.305 | -79.9% |
 
-**Proposed implementation**:
-1. Fit global power law on all SPX data (α ≈ 1.81) - no rolling, no bias
-2. For each day, calculate 60-day rolling CCDF  
-3. Measure deviation of rolling CCDF from global fitted line at each return magnitude
-4. Aggregate deviation across return magnitudes (weighted by probability?)
-5. Take derivative of that aggregate deviation over time → dDeviation/dt
-6. Use derivative magnitude/direction as regime signal
-
-**Key difference from Phase 1 power law signal**:
-- Phase 1: Classified each day as RED/GREEN based on local fit vs current return
-- Phase 2 (this): Track how entire distribution shape is evolving over time
-- No local fitting that creates artifacts
-- Focus on transition dynamics, not static classification
-
-### WIP Code Files
-
-Created in `/code/WIP/` directory:
-
-**plot_derivative.py** (5,718 bytes)
-- Main analysis script for CCDF deviation derivative
-- Loads SPX data, calculates rolling alpha, fits global power law
-- **STATUS**: Incomplete implementation
-- **BLOCKER**: Context window became unusable during coding
-- **NEXT STEP**: Complete deviation derivative calculation logic
-
-**power_law_no_filter.py** (2,031 bytes)
-- Simpler visualization script  
-- Shows raw 60-day rolling signal without 3-day lag filter
-- Used for debugging signal behavior across assets
-
-**load_vix.py** (858 bytes)
-- Utility for loading VIX data
-- Handles VIX-specific CSV format quirks
-
-### Critical Open Questions
-
-1. **Is CCDF deviation derivative fundamentally different from R² derivative?**
-   - R² derivative = fit quality change (scalar)
-   - CCDF derivative = distribution shape change (curve evolution)
-   - Are these two views of the same phenomenon, or distinct signals?
-
-2. **Can we measure CCDF deviation without look-ahead bias?**
-   - Using global alpha from full dataset is forward-looking
-   - Could fit on training period (pre-1980), test on recent data
-   - Need to verify no information leakage
-
-3. **Does derivative remove the artifact from Phase 1?**
-   - Phase 1 showed local fitting creates separation artifact
-   - Derivative of deviation from GLOBAL fit should avoid this
-   - Needs synthetic/shuffled data testing to confirm
-
-4. **How to aggregate deviation across return magnitudes?**
-   - Simple sum of absolute deviations?
-   - Weighted by probability density?
-   - Focus on tail deviations only (where power law matters most)?
-   - Different aggregation methods may produce different signals
-
-5. **Relationship to heteroskedasticity?**
-   - R² derivative detects fit quality regime changes
-   - CCDF derivative detects distribution shape regime changes  
-   - Both measure market stress, but from different angles
-   - Could be complementary signals
-
-### Session End Status
-
-**Interrupted**: Context window became unusable during implementation  
-**Preserved**: WIP code files, this worklog section, hypothesis documented  
-**Ready to resume**: Clear next steps defined
-
-**Next concrete steps when resuming**:
-1. Complete CCDF deviation calculation in `plot_derivative.py`
-2. Implement deviation aggregation logic (test multiple methods)
-3. Calculate derivative: d(deviation)/dt
-4. Visualize derivative signal vs SPX price over full history
-5. **Critical test**: Run on synthetic random data - does pattern still appear?
-6. **Critical test**: Run on shuffled SPX - does pattern still appear?
-7. If passes artifact tests → statistical validation vs random signals
-8. If passes validation → test across multiple assets
-9. Compare CCDF derivative signal to R² derivative signal (correlation? complementary?)
-
-**Key insight to preserve**: The "bendy bendy" curve is real and universal, but the Phase 1 separation was an artifact of local fitting. Using derivative of deviation from GLOBAL fit may capture the real regime signal without the artifact.
+**FAILED**: Massive underperformance vs buy-and-hold
 
 ---
 
-*Last Updated: January 1, 2026*
+## The Core Issue
+
+**Visual Pattern vs Trading Signal**:
+The alpha derivative DOES show regime behavior:
+- Becomes quieter during bear markets
+- More chaotic during bull markets
+- Pattern is REAL and observable
+
+**BUT** this doesn't translate to trading edge because:
+1. **Signal fires too early** - Goes quiet during bull run-ups AND crashes
+2. **No clear timing** - Red/green oscillate constantly throughout all regimes
+3. **Not predictive** - Shows what's happening, not what will happen
+4. **Threshold too sensitive** - ±1σ captures noise, not regime changes
+
+The oscillator might describe market state but doesn't predict transitions.
+
+---
+
+## Key Technical Learnings
+
+### Signal File Implementation
+**Critical Issue**: NaN handling in rolling calculations
+- Initial implementation kept all rows → z-score calculated on sparse data with NaN gaps
+- Fixed: Calculate on clean subset (drop NaN, reset index), map states back to full dataframe
+- This matches how the exploratory plots worked
+
+**Lesson**: When rolling calculations are core to signal logic, work on clean/contiguous data then map results back
+
+### Mathematical Dead Ends
+All these measure the same thing (volatility/activity):
+- Rolling standard deviation
+- Rolling range (max - min)
+- Sum of absolute changes
+- Average of absolute values
+- "Chaos oscillators"
+- Synthetic VIX on the series
+
+**Insight**: If you can visually see a pattern but multiple mathematical approaches all give the same noisy result, the pattern might not be quantifiable in a useful way.
+
+---
+
+## What We Learned
+
+### About Power Laws
+1. **Fit quality varies** - R² drops during high volatility (heteroskedasticity is real)
+2. **Alpha changes** - Power law exponent shifts during regime changes
+3. **Correlation ≠ Prediction** - R² correlates with VIX (0.74) but lags crashes
+4. **Derivative behavior is real** - Alpha oscillator quiets during bears, but pattern isn't tradeable
+
+### About Signal Development
+1. **Visual patterns can be deceptive** - Seeing something ≠ being able to trade it
+2. **Backtest everything** - Beautiful charts mean nothing without P&L
+3. **T+1 is critical** - T+0 results are useless for actual trading
+4. **Simple position sizing first** - Before getting fancy, test if raw signal has any edge
+
+### Dead Ends to Remember
+- R² level/derivative: Lags crashes
+- Alpha changes: Weak/inconsistent leading behavior  
+- Derivative "quietness": Real but not predictive
+- Chaos oscillators: Just volatility by another name
+
+---
+
+## Phase 2 Complete - Moving Forward
+
+Phase 2 explored power law fit quality as a regime indicator and found that while patterns exist, they don't translate to trading edge. The alpha derivative oscillator shows real regime behavior but fires too early and too often to be useful in raw form.
+
+**Next**: Explore combinations of signals or fundamentally different approaches to regime detection.
+
+---
+
+*Last Updated: January 2, 2026 - Phase 2 Complete*

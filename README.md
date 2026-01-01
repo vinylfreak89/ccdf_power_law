@@ -1,16 +1,17 @@
 # Power Law Trading Signal Investigation
 
 **Period**: December 2025 - January 2026  
-**Status**: Exploring R² derivative as volatility regime indicator
+**Status**: Phase 1 & 2 Complete - Multiple signals tested and failed
 
 ## Quick Start
 
 ```bash
-# Test signals
+# Test signals (all failed)
 cd code/signals
-python moderate_vol.py          # Phase 1: moderate volatility (proven artifact)
-python power_law_deviation.py   # Phase 1: power law deviation (proven artifact)
-python r2_derivative_regime.py  # Phase 2: fit quality regime (testing)
+python moderate_vol.py              # Phase 1: moderate volatility (forward-biased)
+python power_law_deviation.py       # Phase 1: power law deviation (artifact)
+python r2_derivative_regime.py      # Phase 2: R² regime (abandoned - noise)
+python alpha_derivative_zscore.py   # Phase 2: alpha derivative (no edge)
 
 # Run backtest
 cd ../backtest
@@ -48,13 +49,14 @@ organized_project/
 
 **Start here**: `docs/WORK_LOG.md` - Complete findings and context
 
-**Phase 1 (Completed - Failures Documented)**:
-- `code/signals/moderate_vol.py` - Moderate vol signal (proven forward-biased)
-- `code/signals/power_law_deviation.py` - Power law signal (proven artifact)
+**Phase 1 (Complete - Failures Documented)**:
+- `code/signals/moderate_vol.py` - Moderate vol signal (forward-biased)
+- `code/signals/power_law_deviation.py` - Power law signal (artifact)
 - `plots/tests/` - Proof that power law patterns are mathematical illusions
 
-**Phase 2 (In Progress - Testing)**:
-- `code/signals/r2_derivative_regime.py` - Fit quality regime signal
+**Phase 2 (Complete - Failures Documented)**:
+- `code/signals/r2_derivative_regime.py` - R² regime signal (abandoned - just noise)
+- `code/signals/alpha_derivative_zscore.py` - Alpha derivative signal (real pattern, no edge)
 - `code/analysis/fit_quality.py` - Power law fit analysis
 - `code/analysis/synthetic_vix.py` - Synthetic VIX calculator
 - `code/backtest/backtest_engine.py` - Position sizing & metrics
@@ -68,6 +70,8 @@ organized_project/
 ### What Failed
 ✗ Power law deviation signal - mathematical artifact  
 ✗ Moderate volatility signal - forward bias or broken  
+✗ R² derivative - just noise, no predictive power  
+✗ Alpha derivative - real pattern but no trading edge (underperforms 64k% vs buy-hold)  
 ✗ Shorting during stress periods - destroys returns  
 
 ### What Works  
@@ -75,13 +79,16 @@ organized_project/
 ✓ Statistical validation framework  
 ✓ Methodology to detect artifacts  
 ✓ 15 assets, 100+ years of data  
+✓ Rigorous testing process that eliminates false signals
 
-### What's Being Tested
-⧗ R² derivative as regime indicator  
-⧗ Global fit quality degradation predicting volatility  
-⧗ Levering up when fit improving (preliminary: 3.5x vs buy-hold)  
+### What We Learned
+- Visual patterns can be deceptive (seeing ≠ trading)
+- R² correlates 0.74 with VIX but lags crashes
+- Alpha oscillator quiets during bear markets but fires too early
+- Multiple mathematical approaches measuring same thing (volatility)
+- T+1 testing is critical, T+0 is useless
 
-**Next**: Statistical validation, eliminate bias, test significance
+**Status**: Phase 1 & 2 Complete. Ready for Phase 3.
 
 ---
 

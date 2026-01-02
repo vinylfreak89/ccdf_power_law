@@ -605,30 +605,6 @@ Tested 1,386 periods across SPX history (every 20 days from 1920-2025):
 - Compression + sentiment → direction
 - Compression + positioning data → direction
 
-### Files Generated
-
-**Plots** (phase3_results/plots/):
-- `mean_ccdf_deviation.png` - Mean deviation 1990-2025
-- `raw_mean_deviation_full.png` - Full history 1920-2025
-- `deviation_*.png` - Individual asset deviation plots
-- `ccdf_deviation_animation.mp4` - Time-lapse of CCDF curve morphing
-- `sharp_peaks.png` - Peak detection attempts
-
-**Analysis** (phase3_results/analysis/):
-- `compression_test_results.csv` - SPX crashes with compression metrics
-- `all_assets_compression_test.csv` - Multi-asset compression before crashes
-- `rally_compression_test.csv` - Compression before rallies (specificity test)
-- `random_compression_test.csv` - Baseline compression in random periods
-- `directional_analysis_spx.csv` - Full directional prediction analysis (1,386 periods)
-- `compression_summary.txt` - Summary of all findings
-
-**Code** (phase3_results/code/):
-- Mean deviation calculation scripts
-- Drawdown/rally identification
-- Empirical testing framework
-- Animation generation
-- Statistical analysis
-
 ### Phase 3 Complete
 
 **Status**: Mean CCDF deviation identified as real regime change signal lacking directional component. Pattern validated across multiple assets and time periods. Not tradeable as standalone signal but shows promise for combination strategies.
